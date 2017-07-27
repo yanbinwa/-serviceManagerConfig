@@ -1,0 +1,16 @@
+serviceProperties :
+    serviceDataProperties:
+        serviceGroupName : "config"
+        serviceName : "config_standalone"
+        ip : "172.18.0.91"
+        port : 8141
+        rootUrl : "/config"
+    zNodeInfoProperties:
+        confZnodePath : "/confManageNode"
+        deployChildZnodePath : "/confManageNode/deployManageNode"
+        zookeeperHostport : "172.18.0.11:2191"
+    manifestFile : "/opt/config/conf/manifest.yml"
+
+tomcatPort : 8141
+
+logging.file : "/opt/config/log/console.log"

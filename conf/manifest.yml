@@ -1,0 +1,210 @@
+servicesInfo:
+  
+  components:
+
+    orchestration:
+      devices :
+        orchestration_standalone:
+          serviceDataProperties :
+            serviceGroupName : "orchestration"
+            serviceName : "orchestration_standalone"
+            ip : "172.18.0.21"
+            port : 8091
+            rootUrl : "/iOrchestration"
+          monitorProperties:
+            kafka:
+              kafka:
+                serviceGroupName : "kafka"
+                serviceName : "kafka"
+                kafkaHostPort : "172.18.0.41:9101"
+                testTopic: "orchestrationTest"
+            redis:
+              redis_1:
+                serviceGroupName : "redis"
+                serviceName : "redis_1"
+                redisHost: "172.18.0.71"
+                redisPort: "6381"
+          dependencyProperties : "{\"redisPartitionNum\":10,\"serviceDependency\":{\"cache\":[\"kafka\",\"redis\"],\"kafka\":[],\"aggregation\":[\"kafka\",\"cache\"],\"collection\":[\"kafka\",\"aggregation\",\"cache\"],\"redis\":[]},\"kafkaTopicInfo\":{\"aggregationTopic\":10}}"
+
+    collection:
+      devices :
+        collection_standalone:
+          serviceDataProperties:
+            serviceGroupName : "collection"
+            serviceName : "collection_standalone"
+            ip : "172.18.0.31"
+            port : 8101
+            rootUrl : "/collection"
+            topicInfo : "{\"producers\":[\"aggregationTopic\"]}"
+          kafkaProperties:
+            producers:
+              aggregationTopic:
+                brokerList : "172.18.0.41:9101"
+                serializerClass : "org.apache.kafka.common.serialization.StringSerializer"
+                batchSize : "200"
+                retries : "0"
+                maxBlockMs : "5000"
+
+    aggregation:
+      devices :
+        aggregation_standalone:
+          serviceDataProperties:
+            serviceGroupName : "aggregation"
+            serviceName : "aggregation_standalone"
+            ip : "172.18.0.81"
+            port : 8131
+            rootUrl : "/aggregation"
+            topicInfo : "{\"consumers\":{\"aggregationTopic\":[\"aggregationTopic_1\"]}}"
+          kafkaProperties:
+            consumers:
+              aggregationTopic_1:
+                brokerList : "172.18.0.41:9101"
+                consumerTopic : "aggregationTopic_1"
+                groupId : "aggregationTopic"
+                deserializerClass : "org.apache.kafka.common.serialization.StringDeserializer"
+
+    cache:
+      consoleLog : "/opt/cache/log/console.log"
+      devices :
+        cache_standalone:
+          serviceDataProperties:
+            serviceGroupName : "cache"
+            serviceName : "cache_standalone"
+            ip : "172.18.0.51"
+            port : 8111
+            rootUrl : "/cache"
+            redisInfoNeed : "true"
+
+
+deployInfo:
+
+  root_path : /root/yanbinwa/ansible
+  ansible_host : /target/ansible/host.template
+  ansible_main : /target/ansible/main.yaml
+  docker_container : /target/docker/docker_container.sh
+
+  components:
+          
+    orchestration:
+      package : /package/orchestration/serviceManagerOrchestration-1.0-SNAPSHOT.jar
+      template : /template/orchestration/orchestration.yaml
+      setup_dir : /opt/orchestration
+      logFilePath: /opt/orchestration/log
+      logFiles: 'message,console'
+      applicationTemplate : /template/orchestration/application.yaml
+      consoleLog : /opt/orchestration/log/console.log
+      devices :
+        orchestration_standalone :
+          name : orchestration_standalone
+          user : root
+          password : cisco123
+          ip : 172.18.0.21
+          port : 8091
+          command : 'nohup java -Dspring.profiles.active=standalone -jar /opt/orchestration/serviceManagerOrchestration-1.0-SNAPSHOT.jar 2>&1 > /dev/null &'
+          dockerImage : ubuntu:v2
+          dockerNet : yanbin
+          ansibleFile : /target/ansible/orchestration/orchestration_standalone.yaml
+          applicationFile : /target/application/orchestration/application-standalone.yaml
+      
+      flume:
+        kafkaBrokerList: '172.18.0.41:9101'
+        kafkaTopic: logging
+        kafkaPartitionId: 0
+        flumeConfInstallPath: /opt/apache-flume-1.7.0-bin/conf
+        flumeConfTargetRootPath: /target/flume/orchestration
+        flumeConfTemplate: /template/flume/logAgent.conf.template
+        flumeConfSrcTemplate: /template/flume/logAgent/logAgentSrc.template
+        flumeConfName: log.conf
+
+    collection:
+      package : /package/collection/serviceManagerCollection-1.0-SNAPSHOT.jar
+      template : /template/collection/collection.yaml
+      setup_dir : /opt/collection
+      logFilePath: /opt/collection/log
+      logFiles: 'message,console'
+      applicationTemplate : /template/collection/application.yaml
+      consoleLog : /opt/collection/log/console.log
+      devices :
+        collection_standalone :
+          name : collection_standalone
+          user : root
+          password : cisco123
+          ip : 172.18.0.31
+          port : 8101
+          command : 'nohup java -Dspring.profiles.active=standalone -jar /opt/collection/serviceManagerCollection-1.0-SNAPSHOT.jar 2>&1 > /dev/null &'
+          dockerImage : ubuntu:v2
+          dockerNet : yanbin
+          ansibleFile : /target/ansible/collection/collection_standalone.yaml
+          applicationFile : /target/application/collection/application-standalone.yaml
+      
+      flume:
+        kafkaBrokerList: '172.18.0.41:9101'
+        kafkaTopic: logging
+        kafkaPartitionId: 1
+        flumeConfInstallPath: /opt/apache-flume-1.7.0-bin/conf
+        flumeConfTargetRootPath: /target/flume/collection
+        flumeConfTemplate: /template/flume/logAgent.conf.template
+        flumeConfSrcTemplate: /template/flume/logAgent/logAgentSrc.template
+        flumeConfName: log.conf
+          
+    cache:
+      package : /package/cache/serviceManagerCache-1.0-SNAPSHOT.jar
+      template : /template/cache/cache.yaml
+      setup_dir : /opt/cache
+      logFilePath: /opt/cache/log
+      logFiles: 'message,console'
+      applicationTemplate : /template/cache/application.yaml
+      consoleLog : /opt/cache/log/console.log
+      devices :
+        cache_standalone :
+          name : cache_standalone
+          user : root
+          password : cisco123
+          ip : 172.18.0.51
+          port : 8111
+          command : 'nohup java -Dspring.profiles.active=standalone -jar /opt/cache/serviceManagerCache-1.0-SNAPSHOT.jar 2>&1 > /dev/null &'
+          dockerImage : ubuntu:v2
+          dockerNet : yanbin
+          ansibleFile : /target/ansible/cache/cache_standalone.yaml
+          applicationFile : /target/application/cache/application-standalone.yaml
+      
+      flume:
+        kafkaBrokerList: '172.18.0.41:9101'
+        kafkaTopic: logging
+        kafkaPartitionId: 2
+        flumeConfInstallPath: /opt/apache-flume-1.7.0-bin/conf
+        flumeConfTargetRootPath: /target/flume/cache
+        flumeConfTemplate: /template/flume/logAgent.conf.template
+        flumeConfSrcTemplate: /template/flume/logAgent/logAgentSrc.template
+        flumeConfName: log.conf
+
+    aggregation:
+      package : /package/aggregation/serviceManagerAggregation-1.0-SNAPSHOT.jar
+      template : /template/aggregation/aggregation.yaml
+      setup_dir : /opt/aggregation
+      logFilePath: /opt/aggregation/log
+      logFiles: 'message,console'
+      applicationTemplate : /template/aggregation/application.yaml
+      consoleLog : /opt/aggregation/log/console.log
+      devices :
+        aggregation_standalone :
+          name : aggregation_standalone
+          user : root
+          password : cisco123
+          ip : 172.18.0.81
+          port : 8131
+          command : 'nohup java -Dspring.profiles.active=standalone -jar /opt/aggregation/serviceManagerAggregation-1.0-SNAPSHOT.jar 2>&1 > /dev/null &'
+          dockerImage : ubuntu:v2
+          dockerNet : yanbin
+          ansibleFile : /target/ansible/aggregation/aggregation_standalone.yaml
+          applicationFile : /target/application/aggregation/application-standalone.yaml
+      
+      flume:
+        kafkaBrokerList: '172.18.0.41:9101'
+        kafkaTopic: logging
+        kafkaPartitionId: 2
+        flumeConfInstallPath: /opt/apache-flume-1.7.0-bin/conf
+        flumeConfTargetRootPath: /target/flume/aggregation
+        flumeConfTemplate: /template/flume/logAgent.conf.template
+        flumeConfSrcTemplate: /template/flume/logAgent/logAgentSrc.template
+        flumeConfName: log.conf
