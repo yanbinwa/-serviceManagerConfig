@@ -1,0 +1,16 @@
+serviceProperties :
+    serviceDataProperties:
+        serviceGroupName : "config"
+        serviceName : "config_standalone"
+        ip : "172.18.0.91"
+        port : 8141
+        rootUrl : "/config"
+    zNodeInfoProperties:
+        confZnodePath : "/confManageNode"
+        deployChildZnodePath : "/confManageNode/deployManageNode"
+        zookeeperHostport : "192.168.56.17:2181"
+    manifestFile : "/Users/yanbinwa/Documents/workspace/springboot/serviceManager/serviceManagerConfig/conf/manifest.yml"
+
+tomcatPort : 8141
+
+logging.file : "/Users/yanbinwa/Documents/workspace/springboot/serviceManager/serviceManagerConfig/log/console.log"
