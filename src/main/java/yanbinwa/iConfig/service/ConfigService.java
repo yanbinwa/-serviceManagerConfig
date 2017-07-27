@@ -14,7 +14,13 @@ public interface ConfigService extends InitializingBean, ServiceLifeCycle
     public static final int ZK_WAIT_INTERVAL = 10 * 1000;
     
     String getServiceName() throws ServiceUnavailableException;
+<<<<<<< HEAD
         
+=======
+    
+    boolean isServiceReady() throws ServiceUnavailableException;
+    
+>>>>>>> 2aaaa152c3b5e0b79686600e802c099dfee3bc39
     void startManageService();
 
     void stopManageService();

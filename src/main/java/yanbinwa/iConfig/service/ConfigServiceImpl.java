@@ -201,29 +201,51 @@ public class ConfigServiceImpl implements ConfigService
     @Override
     public String getServiceName() throws ServiceUnavailableException
     {
+<<<<<<< HEAD
         if(!isServiceReadyToWork())
         {
             throw new ServiceUnavailableException();
         }
         return serviceData.getServiceName();
+=======
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public boolean isServiceReady() throws ServiceUnavailableException
+    {
+        // TODO Auto-generated method stub
+        return false;
+>>>>>>> 2aaaa152c3b5e0b79686600e802c099dfee3bc39
     }
 
     @Override
     public void startManageService()
     {
+<<<<<<< HEAD
         if(!isServiceReadyToWork())
         {
             start();
         }
+=======
+        // TODO Auto-generated method stub
+        
+>>>>>>> 2aaaa152c3b5e0b79686600e802c099dfee3bc39
     }
 
     @Override
     public void stopManageService()
     {
+<<<<<<< HEAD
         if(isServiceReadyToWork())
         {
             stop();
         }
+=======
+        // TODO Auto-generated method stub
+        
+>>>>>>> 2aaaa152c3b5e0b79686600e802c099dfee3bc39
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -656,11 +678,14 @@ public class ConfigServiceImpl implements ConfigService
         return true;
     }
     
+<<<<<<< HEAD
     private boolean isServiceReadyToWork()
     {
         return isRunning;
     }
     
+=======
+>>>>>>> 2aaaa152c3b5e0b79686600e802c099dfee3bc39
     class ZkWatcher implements Watcher
     {
         @Override
