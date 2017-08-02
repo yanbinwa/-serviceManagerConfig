@@ -1,5 +1,6 @@
 package yanbinwa.iConfig.service;
 
+import java.io.FileNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
@@ -52,7 +53,7 @@ public class ConfigServiceImpl implements ConfigService
     
     ZNodeServiceData serviceData = null;
     String confZnodePath = null;
-    String deployChildZnodePath = null;
+    String deployServiceName = null;
     
     /** ServiceName to Service Properties */
     @SuppressWarnings("rawtypes")
@@ -113,13 +114,6 @@ public class ConfigServiceImpl implements ConfigService
         if (confZnodePath == null)
         {
             logger.error("confZnodePath should not be null");
-            return;
-        }
-        
-        deployChildZnodePath = zNodeInfoProperties.get(CommonConstants.CONFDEPLOYCHILDZNODEPATH_KEY);
-        if (deployChildZnodePath == null)
-        {
-            logger.error("deployChildZnodePath should not be null");
             return;
         }
         
@@ -235,13 +229,23 @@ public class ConfigServiceImpl implements ConfigService
             logger.error("manifestFile should not be null");
             return null;
         }
-        Map manifestMap = YamlUtil.getMapFromFile(fileName);
+        Map manifestMap = null;
+        try
+        {
+            manifestMap = YamlUtil.getMapFromFile(fileName);
+        } 
+        catch (FileNotFoundException e)
+        {
+            logger.error("Fail to load the manifest file. message is " + e.getMessage());
+            return null;
+        }
         if (manifestMap == null)
         {
             logger.error("Fail to get the manifest from file: " + fileName);
             return null;
         }
         Map<String, Object> serviceInfoAndDeployInfoMap = new HashMap<String, Object>();
+        
         //Get Service Info Map
         Object serviceInfoObject = manifestMap.get(ConfigService.SERVICE_INFO_KEY);
         if (serviceInfoObject == null || !(serviceInfoObject instanceof Map))
@@ -265,6 +269,12 @@ public class ConfigServiceImpl implements ConfigService
         if (deployInfoObject == null || !(deployInfoObject instanceof Map))
         {
             logger.error("Can not get the deployInfoObject or deployInfoObject is not a map");
+            return null;
+        }
+        deployServiceName = (String)((Map<String, Object>)deployInfoObject).remove(DEPLOY_SERVICE_KEY);
+        if (deployServiceName == null)
+        {
+            logger.error("deployServiceName is null");
             return null;
         }
         serviceInfoAndDeployInfoMap.put(DEPLOY_INFO_KEY, deployInfoObject);
@@ -432,7 +442,7 @@ public class ConfigServiceImpl implements ConfigService
             }
             else
             {
-                zNodeDepolyInfoMap = (Map<String, Object>)serviceInfoMapObj;
+                zNodeDepolyInfoMap = (Map<String, Object>) deployInfoMapObj;
                 updateDeployInfoMap(zNodeDepolyInfoMap);
             }
         }
@@ -626,7 +636,7 @@ public class ConfigServiceImpl implements ConfigService
             logger.info("deploy info is null. Just return");
             return;
         }
-        boolean ret = addOrUpdateConfigZNode(deployChildZnodePath, deployInfoMap);
+        boolean ret = addOrUpdateConfigZNode(getDeployChildZnodePath(), deployInfoMap);
         if (ret)
         {
             logger.info("Update the Deploy ZNode successful");
@@ -638,6 +648,11 @@ public class ConfigServiceImpl implements ConfigService
         }
     }
     
+    private String getDeployChildZnodePath()
+    {
+        return confZnodePath + "/" + deployServiceName;
+    }
+    
     @SuppressWarnings("rawtypes")
     private boolean addOrUpdateConfigZNode(String serviceZNodePath, Map serviceProperties) throws KeeperException, InterruptedException
     {
@@ -645,6 +660,7 @@ public class ConfigServiceImpl implements ConfigService
         {
             return false;
         }
+        
         JSONObject servicePropertiesObj = new JSONObject(serviceProperties);
         if (ZkUtil.checkZnodeExist(zk, serviceZNodePath))
         {

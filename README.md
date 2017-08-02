@@ -1,1 +1,1 @@
-# -serviceManagerConfig
+# serviceManagerConfig
