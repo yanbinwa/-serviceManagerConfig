@@ -3,6 +3,7 @@ package yanbinwa.iConfig.service;
 import java.io.FileNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.log4j.Logger;
@@ -18,6 +19,10 @@ import org.springframework.stereotype.Service;
 
 import yanbinwa.common.constants.CommonConstants;
 import yanbinwa.common.exceptions.ServiceUnavailableException;
+import yanbinwa.common.file.FileStatus;
+import yanbinwa.common.file.FileWatcher;
+import yanbinwa.common.file.FileWatcherCallback;
+import yanbinwa.common.file.FileWatcherImpl;
 import yanbinwa.common.utils.YamlUtil;
 import yanbinwa.common.utils.ZkUtil;
 import yanbinwa.common.zNodedata.ZNodeDataUtil;
@@ -63,12 +68,18 @@ public class ConfigServiceImpl implements ConfigService
     
     String zookeeperHostIp = null;
     volatile boolean isRunning = false;
+    volatile boolean isConfiged = false;
+    
     ZooKeeper zk = null;
+    
+    FileWatcher fileWatcher = null;
     
     /** copyOnWrite lock */
     ReentrantLock lock = new ReentrantLock();
     
     Watcher zkWatcher = new ZkWatcher();
+    
+    FileWatcherCallback callback = new ConfigFileWatcherCallback();
     
     public void setManifestFile(String manifestFile)
     {
@@ -125,6 +136,8 @@ public class ConfigServiceImpl implements ConfigService
         String rootUrl = serviceDataProperties.get(CommonConstants.SERVICE_ROOTURL);
         serviceData = new ZNodeServiceDataImpl(ip, serviceGroupName, serviceName, port, rootUrl);
 
+        fileWatcher = new FileWatcherImpl(callback);
+        
         start();
     }
 
@@ -139,6 +152,7 @@ public class ConfigServiceImpl implements ConfigService
     {
         if (!isRunning)
         {
+            logger.info("start config service");
             isRunning = true;
             boolean ret = buildZookeeprConnection();
             if (!ret)
@@ -146,27 +160,8 @@ public class ConfigServiceImpl implements ConfigService
                 logger.error("ConfigServiceImpl can not connect to Zookeeper");
                 return;
             }
-            try
-            {
-                setUpZnodeForConfig();
-                Map<String, Object> serviceInfoAndDeployInfoMap = loadConfigFile(manifestFile);
-                updateServiceInfoAndDeployInfoMap(serviceInfoAndDeployInfoMap);
-            } 
-            catch (KeeperException e)
-            {
-                logger.error(e.getMessage());
-            } 
-            catch (InterruptedException e)
-            {
-                if (!isRunning)
-                {
-                    logger.info("service is stopped");
-                }
-                else
-                {
-                    e.printStackTrace();
-                }
-            }
+            fileWatcher.registerFile(manifestFile);
+            fileWatcher.start();
         }
         else
         {
@@ -184,7 +179,9 @@ public class ConfigServiceImpl implements ConfigService
     {
         if (isRunning)
         {
-            
+            logger.info("stop config service");
+            isRunning = false;
+            fileWatcher.stop();
         }
         else
         {
@@ -218,6 +215,68 @@ public class ConfigServiceImpl implements ConfigService
         if(isServiceReadyToWork())
         {
             stop();
+        }
+    }
+    
+    @Override
+    public void startWork()
+    {
+        logger.info("conf start work");
+        init();
+    }
+
+    @Override
+    public void stopWork()
+    {
+        logger.info("conf stop work");
+        reset();
+    }
+    
+    private void init()
+    {
+        try
+        {
+            setUpZnodeForConfig();
+        } 
+        catch (KeeperException e)
+        {
+            logger.error(e.getMessage());
+        } 
+        catch (InterruptedException e)
+        {
+            if (!isRunning)
+            {
+                logger.info("service is stopped");
+            }
+            else
+            {
+                e.printStackTrace();
+            }
+        }
+    }
+    
+    private void reset()
+    {
+        try
+        {
+            deleteZnodeForConfig();
+            serviceNameToServicePropertiesMap.clear();
+            zNodeDepolyInfoMap = null;
+        } 
+        catch (KeeperException e)
+        {
+            logger.error(e.getMessage());
+        } 
+        catch (InterruptedException e)
+        {
+            if (!isRunning)
+            {
+                logger.info("service is stopped");
+            }
+            else
+            {
+                e.printStackTrace();
+            }
         }
     }
     
@@ -373,6 +432,23 @@ public class ConfigServiceImpl implements ConfigService
         return true;
     }
     
+    @SuppressWarnings("unused")
+    private void closeZookeeperConnection()
+    {
+        if(zk != null)
+        {
+            try
+            {
+                ZkUtil.closeZk(zk);
+                zk = null;
+            } 
+            catch (InterruptedException e)
+            {
+                logger.error("Fail to close the zookeeper connection at begin");
+            }
+        }
+    }
+    
     private void setUpZnodeForConfig() throws KeeperException, InterruptedException
     {
         logger.info("setUpZnodeForConfig ...");
@@ -386,6 +462,20 @@ public class ConfigServiceImpl implements ConfigService
             String regZNodePathStr = ZkUtil.createPersistentZNode(zk, confZnodePath, serviceData.createJsonObject());
             logger.info("Create znode: " + regZNodePathStr);
         }
+    }
+    
+    private void deleteZnodeForConfig() throws KeeperException, InterruptedException
+    {
+        Set<String> serviceNameSet = serviceNameToServicePropertiesMap.keySet();
+        for (String serviceName : serviceNameSet)
+        {
+            logger.info("deleteZnodeForConfig delete serviceName");
+            String serviceConfigZNodePath = getServiceConfigZNodePath(serviceName);
+            delConfigZNode(serviceConfigZNodePath);
+        }
+        String deployConfigZNodePath = getServiceConfigZNodePath(deployServiceName);
+        delConfigZNode(deployConfigZNodePath);
+        delConfigZNode(confZnodePath);
     }
     
     private void waitingForZookeeper()
@@ -636,7 +726,7 @@ public class ConfigServiceImpl implements ConfigService
             logger.info("deploy info is null. Just return");
             return;
         }
-        boolean ret = addOrUpdateConfigZNode(getDeployChildZnodePath(), deployInfoMap);
+        boolean ret = addOrUpdateConfigZNode(getServiceConfigZNodePath(deployServiceName), deployInfoMap);
         if (ret)
         {
             logger.info("Update the Deploy ZNode successful");
@@ -646,11 +736,6 @@ public class ConfigServiceImpl implements ConfigService
         {
             logger.error("Update the Deploy ZNode failed");
         }
-    }
-    
-    private String getDeployChildZnodePath()
-    {
-        return confZnodePath + "/" + deployServiceName;
     }
     
     @SuppressWarnings("rawtypes")
@@ -675,7 +760,7 @@ public class ConfigServiceImpl implements ConfigService
     
     private boolean isServiceReadyToWork()
     {
-        return isRunning;
+        return isRunning && isConfiged;
     }
     
     class ZkWatcher implements Watcher
@@ -686,4 +771,74 @@ public class ConfigServiceImpl implements ConfigService
             logger.debug("Zookeeper event is: " + event);
         } 
     }
+    
+    class ConfigFileWatcherCallback implements FileWatcherCallback
+    {
+        @Override
+        public void handleFileStatueChange(Map<String, FileStatus> fileNameToFileStateMap)
+        {
+            if (fileNameToFileStateMap == null || fileNameToFileStateMap.isEmpty())
+            {
+                logger.error("fileNameToFileStateMap is null or empty");
+                return;
+            }
+            if (!fileNameToFileStateMap.containsKey(manifestFile))
+            {
+                logger.error("fileNameToFileStateMap does not contains manifestFile " + manifestFile + 
+                                "; the fileNameToFileStateMap is " + fileNameToFileStateMap);
+                return;
+            }
+            FileStatus status = fileNameToFileStateMap.get(manifestFile);
+            if (status == FileStatus.CREATE || status == FileStatus.CHANGE)
+            {
+                if (!isConfiged)
+                {
+                    startWork();
+                    isConfiged = true;
+                }
+                try
+                {
+                    Map<String, Object> serviceInfoAndDeployInfoMap = loadConfigFile(manifestFile);
+                    updateServiceInfoAndDeployInfoMap(serviceInfoAndDeployInfoMap);
+                } 
+                catch (KeeperException e)
+                {
+                    logger.error(e.getMessage());
+                } 
+                catch (InterruptedException e)
+                {
+                    if (!isRunning)
+                    {
+                        logger.info("service is stopped");
+                    }
+                    else
+                    {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            else if (status == FileStatus.DELETE)
+            {
+                if (isConfiged)
+                {
+                    stopWork();
+                    isConfiged = false;
+                }
+            }
+            else
+            {
+                logger.error("Unknown file status " + status);
+            }
+        }
+
+        @Override
+        public void handleFileWatcherClose()
+        {
+            if (isConfiged)
+            {
+                stopWork();
+                isConfiged = false;
+            }
+        }
+    }   
 }

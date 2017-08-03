@@ -3,9 +3,10 @@ package yanbinwa.iConfig.service;
 import org.springframework.beans.factory.InitializingBean;
 
 import yanbinwa.common.exceptions.ServiceUnavailableException;
+import yanbinwa.common.iInterface.ConfigServiceIf;
 import yanbinwa.common.iInterface.ServiceLifeCycle;
 
-public interface ConfigService extends InitializingBean, ServiceLifeCycle 
+public interface ConfigService extends InitializingBean, ServiceLifeCycle, ConfigServiceIf
 {
     public static final String SERVICE_INFO_KEY = "servicesInfo";
     public static final String COMPONENTS_KEY = "components";
