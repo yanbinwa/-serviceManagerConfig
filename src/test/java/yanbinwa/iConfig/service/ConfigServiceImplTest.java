@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.Test;
+
 import org.ho.yaml.Yaml;
 
 public class ConfigServiceImplTest
@@ -16,7 +17,7 @@ public class ConfigServiceImplTest
     @Test
     public void testYaml()
     {
-        String testConfPath = "/Users/yanbinwa/Documents/workspace/springboot/serviceManager/serviceManagerConfig/conf/manifest.yml";
+        String testConfPath = "/Users/emotibot/Documents/workspace/serviceManager/serviceManagerConfig/conf/manifest.yml";
         File dumpFile = new File(testConfPath);
         try
         {
@@ -34,7 +35,7 @@ public class ConfigServiceImplTest
 //    @Test
 //    public void checkConfigZnode() throws KeeperException, InterruptedException
 //    {
-//        ZooKeeper zk = ZkUtil.connectToZk("192.168.56.17:2181", new ZkWatcher());
+//        ZooKeeper zk = ZkUtil.connectToZk(ConfigConstantsTest.TEST_ZOOKEEPERHOSTPORT, new ZkWatcher());
 //        JSONObject obj = ZkUtil.getData(zk, "/confManageNode/cache_standalone");
 //        System.out.println("obj is: " + obj);
 //    }
